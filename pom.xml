@@ -112,6 +112,26 @@
         <artifactId>logback-classic</artifactId>
         <version>1.1.7</version>
     </dependency>
+    <!--<dependency>
+        <groupId>io.circe</groupId>
+        <artifactId>circe-generic_2.11</artifactId>
+        <version>0.5.2</version>
+    </dependency>
+    <dependency>
+        <groupId>io.circe</groupId>
+        <artifactId>circe-java8_2.11</artifactId>
+        <version>0.5.2</version>
+    </dependency>
+    <dependency>
+        <groupId>de.heikoseeberger</groupId>
+        <artifactId>akka-http-circe_2.11</artifactId>
+        <version>1.10.0</version>
+    </dependency>-->
+    <dependency>
+        <groupId>com.github.swagger-akka-http</groupId>
+        <artifactId>swagger-akka-http_2.11</artifactId>
+        <version>0.7.2</version>
+    </dependency>
 </dependencies>
 <build>
     <resources>

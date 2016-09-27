@@ -1,13 +1,16 @@
 package com.ibm.employee.service.app
 
+import javax.ws.rs._
+
 import akka.actor.ActorSystem
 import akka.event.Logging
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import akka.http.scaladsl.model.StatusCodes
-import akka.http.scaladsl.server.ExceptionHandler
+import akka.http.scaladsl.server.{Directives, ExceptionHandler, RouteResult}
 import akka.stream.ActorMaterializer
 import com.ibm.couchdb.{CouchDoc, CouchException, MappedDocType}
+import io.swagger.annotations._
 import org.joda.time.DateTime
 import org.joda.time.format.ISODateTimeFormat
 import spray.json._
@@ -68,15 +71,17 @@ trait ModelToJsonmapping extends SprayJsonSupport with DefaultJsonProtocol {
 
 }
 
-
 object EmployeeCouchService extends App with EmployeeService {
 
-  override implicit val system = ActorSystem()
-  override implicit val executor = system.dispatcher
-  override implicit val materializer = ActorMaterializer()
   override val logger = Logging(system, getClass)
 
-  val bindingFuture = Http().bindAndHandle(endpoints, config.getString("http.interface"), config.getInt("http.port"))
+  val endpoints =
+    logRequestResult("employee-service") {
+      swaggerResourcesRoute ~ employeeServiceApiRoutes ~ swaggerDocServiceRoute
+    }
+
+  val bindingFuture = Http().bindAndHandle(RouteResult.route2HandlerFlow(endpoints),
+    config.getString("http.interface"), config.getInt("http.port"))
 
   sys.ShutdownHookThread {
     println(s"unbinding port ${config.getInt("http.port")}")
@@ -86,17 +91,27 @@ object EmployeeCouchService extends App with EmployeeService {
     println("system terminated...")
   }
 
+  def swaggerResourcesRoute = {
+    pathPrefix("swagger") {
+      getFromResourceDirectory("swagger") ~
+        pathSingleSlash(get(redirect("index.html", StatusCodes.PermanentRedirect)))
+    }
+  }
+
+  def swaggerDocServiceRoute = {
+    new SwaggerDocService(config.getString("http.interface"), config.getInt("http.port"), system, materializer).routes
+  }
 
 }
 
 import akka.event.LoggingAdapter
-import akka.http.scaladsl.server.Directives._
 
-
-trait EmployeeService extends ModelToJsonmapping with CouchDAO {
-  implicit val system: AnyRef
-  implicit val executor: AnyRef
-  implicit val materializer: AnyRef
+@Path("/employee")
+@Api(value = "employee", produces = "application/json")
+trait EmployeeService extends Directives with ModelToJsonmapping with CouchDAO {
+  implicit val system = ActorSystem()
+  implicit val executor = system.dispatcher
+  implicit val materializer = ActorMaterializer()
 
   val logger: LoggingAdapter
 
@@ -111,34 +126,116 @@ trait EmployeeService extends ModelToJsonmapping with CouchDAO {
       , "An unexpected error occured while serving request"))
   }
 
-  val endpoints =
-    logRequestResult("employee-service") {
-      pathPrefix("employee") {
-          (path(Segment) & get) { id =>
-            complete(read(id))
-          } ~
-          (pathPrefix("band") & path(Segment) & get) { band =>
-            complete(readByBand(band))
-          } ~
-            (get) {
-              complete(readAllByType())
-            } ~
-          (post & entity(as[Employee])) { employee =>
-            val createdDoc = create(employee)
-            complete(StatusCodes.Created -> createdDoc)
-          } ~
-          (path(Segment)) { id =>
-            (put & entity(as[Employee])) { employee =>
-              val createdDoc = update(id, employee)
-              complete(StatusCodes.Accepted -> createdDoc)
-            }
-          } ~
-          (path(Segment) & delete) { id =>
-            remove(id)
-            complete(StatusCodes.OK -> None)
-          }
+  def employeeServiceApiRoutes = {
+    pathPrefix("employee") {
+      getByIdRoute ~ getByBandRoute ~ getAllByDocTypeRoute ~ postEntityRoute ~ updateEntityRoute ~ deleteEntityRoute
+    }
+  }
+
+  @GET
+  @Path("/{id}")
+  @ApiOperation(value = "Get employee by ID", nickname = "getEmployeeByID",
+    response = classOf[CouchDoc[Employee]])
+  @ApiImplicitParams(Array(
+    new ApiImplicitParam(name = "id", dataType = "String", paramType = "path", required = true)
+  ))
+  @ApiResponses(Array(
+    new ApiResponse(code = 200, message = "OK"),
+    new ApiResponse(code = 404, message = "NOT FOUND")
+  ))
+  def getByIdRoute = (path(Segment) & get) { id =>
+    complete(read(id))
+  }
+
+  @GET
+  @Path("band/{band}")
+  @ApiOperation(value = "Get employees by band", nickname = "getEmployeesByBand",
+    response = classOf[List[CouchDoc[Employee]]], responseContainer = "List")
+  @ApiImplicitParams(Array(
+    new ApiImplicitParam(name = "band", dataType = "String", paramType = "path", required = true)
+  ))
+  @ApiResponses(Array(
+    new ApiResponse(code = 200, message = "OK")
+  ))
+  def getByBandRoute = (pathPrefix("band") & path(Segment) & get) { band =>
+    complete(readByBand(band))
+  }
+
+  @GET
+  @ApiOperation(value = "Get list of all employee type documents", nickname = "getAllEmployeeKind",
+    response = classOf[List[CouchDoc[Employee]]], responseContainer = "List")
+  @ApiResponses(Array(
+    new ApiResponse(code = 200, message = "OK")
+  ))
+  def getAllByDocTypeRoute = (get) {
+    complete(readAllByType())
+  }
+
+  @POST
+  @ApiOperation(value = "Create new employee", nickname = "postEmployee", produces = "application/json",
+    response = classOf[CouchDoc[Employee]], responseContainer = "Set")
+  @ApiImplicitParams(Array(
+    new ApiImplicitParam(name = "employee", dataType = "com.ibm.employee.service.app.Employee", paramType = "body", required = true)
+  ))
+  @ApiResponses(Array(
+    new ApiResponse(code = 201, message = "User created")
+  ))
+  def postEntityRoute = (post & entity(as[Employee])) { employee =>
+    val createdDoc = create(employee)
+    complete(StatusCodes.Created -> createdDoc)
+  }
+
+  @PUT
+  @Path("/{id}")
+  @ApiOperation(value = "Update new employee", nickname = "postEmployee", produces = "application/json",
+    response = classOf[CouchDoc[Employee]], responseContainer = "Set")
+  @ApiImplicitParams(Array(
+    new ApiImplicitParam(name = "id", dataType = "String", paramType = "path", required = true),
+    new ApiImplicitParam(name = "employee", dataType = "com.ibm.employee.service.app.Employee", paramType = "body", required = true)
+  ))
+  @ApiResponses(Array(
+    new ApiResponse(code = 200, message = "OK"),
+    new ApiResponse(code = 404, message = "NOT FOUND")
+  ))
+  def updateEntityRoute =
+    (
+      path(Segment)) { id =>
+      (put & entity(as[Employee])) { employee =>
+        val createdDoc = update(id, employee)
+        complete(StatusCodes.Accepted -> createdDoc)
       }
     }
+
+  @DELETE
+  @Path("/{id}")
+  @ApiOperation(value = "Delete an employee", nickname = "deleteEmployee")
+  @ApiImplicitParams(Array(
+    new ApiImplicitParam(name = "id", dataType = "String", paramType = "path", required = true)
+  ))
+  @ApiResponses(Array(
+    new ApiResponse(code = 200, message = "OK"),
+    new ApiResponse(code = 404, message = "NOT FOUND")
+  ))
+  def deleteEntityRoute = (path(Segment) & delete) { id =>
+    remove(id)
+    complete(StatusCodes.OK -> None)
+  }
+}
+
+import akka.actor.ActorSystem
+import akka.stream.ActorMaterializer
+import com.github.swagger.akka._
+import com.github.swagger.akka.model.Info
+
+import scala.reflect.runtime.{universe => r}
+
+class SwaggerDocService(address: String, port: Int, system: ActorSystem, actorMaterializer: ActorMaterializer)
+  extends SwaggerHttpService with HasActorSystem {
+  override implicit val actorSystem: ActorSystem = system
+  override implicit val materializer: ActorMaterializer = actorMaterializer
+  override val apiTypes = Seq(r.typeOf[EmployeeService])
+  override val host = address + ":" + port
+  override val info = Info(version = "1.0")
 }
 
 import com.ibm.couchdb.{CouchDb, CouchDoc, TypeMapping}
