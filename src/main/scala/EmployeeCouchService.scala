@@ -1,5 +1,6 @@
 package com.ibm.employee.service.app
 
+import java.net.InetAddress
 import javax.ws.rs._
 
 import akka.actor.ActorSystem
@@ -80,8 +81,10 @@ object EmployeeCouchService extends App with EmployeeService {
       swaggerResourcesRoute ~ employeeServiceApiRoutes ~ swaggerDocServiceRoute
     }
 
+  val localhost = InetAddress.getLocalHost
+  val interface = localhost.getHostAddress
   val bindingFuture = Http().bindAndHandle(RouteResult.route2HandlerFlow(endpoints),
-    config.getString("http.interface"), config.getInt("http.port"))
+    interface, config.getInt("http.port"))
 
   sys.ShutdownHookThread {
     println(s"unbinding port ${config.getInt("http.port")}")
@@ -99,7 +102,7 @@ object EmployeeCouchService extends App with EmployeeService {
   }
 
   def swaggerDocServiceRoute = {
-    new SwaggerDocService(config.getString("http.interface"), config.getInt("http.port"), system, materializer).routes
+    new SwaggerDocService(interface, config.getInt("http.port"), system, materializer).routes
   }
 
 }
@@ -107,7 +110,7 @@ object EmployeeCouchService extends App with EmployeeService {
 import akka.event.LoggingAdapter
 
 @Path("/employee")
-@Api(value = "employee", produces = "application/json")
+@Api(value = "Employee Service (Reverse Engineered) Routes", produces = "application/json")
 trait EmployeeService extends Directives with ModelToJsonmapping with CouchDAO {
   implicit val system = ActorSystem()
   implicit val executor = system.dispatcher
