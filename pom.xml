@@ -5,7 +5,7 @@
 <artifactId>EmployeeCouchAkkaService</artifactId>
 <packaging>jar</packaging>
 <version>1.0-SNAPSHOT</version>
-<name>Employee Rest Akka Http Scala</name>
+<name>EmployeeCouchAkkaService</name>
 <url>http://scala-lang.org</url>
 <repositories>
     <repository>
@@ -13,10 +13,6 @@
         <name>Scala-tools Maven2 Repository</name>
         <url>http://scala-tools.org/repo-releases</url>
     </repository>
-    <repository>
-    <id>sprouch repo</id>
-    <url>http://kimstebel.github.com/sprouch/repository</url>
-</repository>
 </repositories>
 <pluginRepositories>
     <pluginRepository>
@@ -68,37 +64,11 @@
         <artifactId>akka-http-testkit_2.11</artifactId>
         <version>2.4.10</version>
     </dependency>
-    <!--<dependency>
-        <groupId>org.scalatest</groupId>
-        <artifactId>scalatest_2.11</artifactId>
-        <version>3.0.0</version>
-        <scope>runtime</scope>
-    </dependency>-->
     <dependency>
         <groupId>com.ibm</groupId>
         <artifactId>couchdb-scala_2.11</artifactId>
         <version>0.7.2</version>
     </dependency>
-    <!--<dependency>
-        <groupId>org.gnieh</groupId>
-        <artifactId>sohva-client_2.11</artifactId>
-        <version>1.1.1</version>
-    </dependency>-->
-    <!--<dependency>-->
-        <!--<groupId>net.databinder</groupId>-->
-        <!--<artifactId>dispatch-core_2.11</artifactId>-->
-        <!--<version>0.8.10</version>-->
-    <!--</dependency>-->
-    <!--<dependency>-->
-        <!--<groupId>net.databinder.dispatch</groupId>-->
-        <!--<artifactId>dispatch-json4s-native_2.11</artifactId>-->
-        <!--<version>0.11.3</version>-->
-    <!--</dependency>-->
-    <!--<dependency>
-        <groupId>sprouch</groupId>
-        <artifactId>sprouch_2.10</artifactId>
-        <version>0.5.11</version>
-    </dependency>-->
     <dependency>
         <groupId>org.scalaj</groupId>
         <artifactId>scalaj-time_2.11</artifactId>
@@ -114,21 +84,6 @@
         <artifactId>logback-classic</artifactId>
         <version>1.1.7</version>
     </dependency>
-    <!--<dependency>
-        <groupId>io.circe</groupId>
-        <artifactId>circe-generic_2.11</artifactId>
-        <version>0.5.2</version>
-    </dependency>
-    <dependency>
-        <groupId>io.circe</groupId>
-        <artifactId>circe-java8_2.11</artifactId>
-        <version>0.5.2</version>
-    </dependency>
-    <dependency>
-        <groupId>de.heikoseeberger</groupId>
-        <artifactId>akka-http-circe_2.11</artifactId>
-        <version>1.10.0</version>
-    </dependency>-->
     <dependency>
         <groupId>com.github.swagger-akka-http</groupId>
         <artifactId>swagger-akka-http_2.11</artifactId>
@@ -136,6 +91,7 @@
     </dependency>
 </dependencies>
 <build>
+    <sourceDirectory>src/main/scala</sourceDirectory>
     <resources>
         <resource>
             <directory>src/main/resources</directory>
@@ -143,9 +99,9 @@
     </resources>
     <plugins>
         <plugin>
-            <groupId>org.scala-tools</groupId>
-            <artifactId>maven-scala-plugin</artifactId>
-            <version>2.15.2</version>
+            <groupId>net.alchim31.maven</groupId>
+            <artifactId>scala-maven-plugin</artifactId>
+            <version>3.2.2</version>
             <executions>
                 <execution>
                     <goals>
@@ -155,11 +111,53 @@
                 </execution>
             </executions>
             <configuration>
-                <sourceDir>src/main/scala</sourceDir>
                 <jvmArgs>
                     <jvmArg>-Xms64m</jvmArg>
                     <jvmArg>-Xmx1024m</jvmArg>
                 </jvmArgs>
+            </configuration>
+        </plugin>
+        <!-- Put dependencies in 'appassembler/lib' directory and generate start script in 'appassembler/bin' -->
+        <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>appassembler-maven-plugin</artifactId>
+            <version>1.10</version>
+            <configuration>
+                <programs>
+                    <program>
+                        <mainClass>com.ibm.employee.service.app.EmployeeCouchService</mainClass>
+                        <id>app</id>
+                    </program>
+                </programs>
+                <repositoryLayout>flat</repositoryLayout>
+                <repositoryName>lib</repositoryName>
+            </configuration>
+            <executions>
+                <execution>
+                    <phase>prepare-package</phase>
+                    <goals>
+                        <goal>assemble</goal>
+                    </goals>
+                </execution>
+            </executions>
+        </plugin>
+
+        <!-- Zip whole 'appassemble' directory, then put the project artifact in the zip's 'appassemble/lib'
+             This creates a 'distZip' style bundle similar to Gradle's -->
+        <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-assembly-plugin</artifactId>
+            <version>2.4</version>
+            <executions>
+                <execution>
+                    <phase>package</phase>
+                    <goals>
+                        <goal>single</goal>
+                    </goals>
+                </execution>
+            </executions>
+            <configuration>
+                <descriptor>src/main/assembly/bin.xml</descriptor>
             </configuration>
         </plugin>
         <plugin>
@@ -210,13 +208,7 @@
                             <ports>
                                 <port>8765</port>
                             </ports>
-                            <entryPoint>
-                                <exec>
-                                    <arg>java</arg>
-                                    <arg>-jar</arg>
-                                    <arg>/opt/akka-http/akka-http-employee-service.jar</arg>
-                                </exec>
-                            </entryPoint>
+                            <command>java -Djava.security.egd=file:/dev/./urandom -jar /opt/akka-http/akka-http-employee-service.jar</command>
                             <assembly>
                                 <inline>
                                     <dependencySets>
@@ -235,11 +227,11 @@
                         </build>
                         <run>
                             <ports>
-                                <port>8765:8765</port>
+                                <port>jboss.port:8765</port>
                             </ports>
                             <wait>
                                 <http>
-                                    <url>http://localhost:8765</url>
+                                    <url>http://localhost:${jboss.port}</url>
                                     <status>200</status>
                                 </http>
                                 <time>30000</time>
@@ -253,29 +245,6 @@
                 </images>
             </configuration>
         </plugin>
-        <!--<plugin>
-            <groupId>org.apache.maven.plugins</groupId>
-            <artifactId>maven-assembly-plugin</artifactId>
-            <version>2.4</version>
-            <configuration>
-                <descriptorRefs>
-                    <descriptorRef>jar-with-dependencies</descriptorRef>
-                </descriptorRefs>
-                <archive>
-                    <manifest>
-                        <mainClass>com.ibm.employee.service.app.EmployeeCouchService</mainClass>
-                    </manifest>
-                </archive>
-            </configuration>
-            <executions>
-                <execution>
-                    <phase>package</phase>
-                    <goals>
-                        <goal>single</goal>
-                    </goals>
-                </execution>
-            </executions>
-        </plugin>-->
     </plugins>
 </build>
 </project>

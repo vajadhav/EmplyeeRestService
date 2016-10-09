@@ -22,10 +22,18 @@ case class SkillSet(skill: String, experience: Int)
 
 case class ResponseError(id: Int, message: String)
 
+case class VCapCloudantService(cloudantNoSQLDB: List[Service])
+
+case class Service(credentials: DBCredentials)
+
+case class DBCredentials(username: String, password: String, host: String, port: Int, url: String)
 
 trait ModelToJsonmapping extends SprayJsonSupport with DefaultJsonProtocol {
   implicit val skillsetFormat = jsonFormat2(SkillSet)
   implicit val errorResponseFormat = jsonFormat2(ResponseError)
+  implicit val dbCredsFormat = jsonFormat5(DBCredentials)
+  implicit val serviceFormat = jsonFormat1(Service)
+  implicit val vcapsServicesFormat = jsonFormat1(VCapCloudantService)
 
   implicit object DateTimeFormat extends RootJsonFormat[DateTime] {
 
@@ -84,7 +92,7 @@ object EmployeeCouchService extends App with EmployeeService {
   val localhost = InetAddress.getLocalHost
   val interface = localhost.getHostAddress
   val bindingFuture = Http().bindAndHandle(RouteResult.route2HandlerFlow(endpoints),
-    interface, config.getInt("http.port"))
+    interface, Option(System.getenv("PORT")).getOrElse(s"${config.getInt("http.port")}").toInt)
 
   sys.ShutdownHookThread {
     println(s"unbinding port ${config.getInt("http.port")}")
@@ -244,12 +252,20 @@ class SwaggerDocService(address: String, port: Int, system: ActorSystem, actorMa
 import com.ibm.couchdb.{CouchDb, CouchDoc, TypeMapping}
 import com.typesafe.config.{Config, ConfigFactory}
 
-trait CouchDAO {
+trait CouchDAO extends ModelToJsonmapping {
   implicit val typeMapping = TypeMapping(classOf[Employee] -> "Employee")
   implicit val config: Config = ConfigFactory.load()
-  implicit val couch = CouchDb(config.getString("database.url"), config.getInt("database.port"),
-    https = false, config.getString("database.user"), config.getString("database.password"))
-  val db = couch.db(config.getString("database.name"), typeMapping)
+  implicit val couch = sys.env.get("VCAP_SERVICES") match {
+    case None => CouchDb(config.getString("database.url"), config.getInt("database.port"),
+      https = false, config.getString("database.user"), config.getString("database.password"))
+    case Some(vcaps_services) => {
+      val services: VCapCloudantService = vcaps_services.stripMargin.parseJson.convertTo[VCapCloudantService]
+      val bluemixCloudantDbaasCredentials: DBCredentials = services.cloudantNoSQLDB(0).credentials
+      CouchDb(bluemixCloudantDbaasCredentials.host, bluemixCloudantDbaasCredentials.port,
+        https = true, bluemixCloudantDbaasCredentials.username, bluemixCloudantDbaasCredentials.password)
+    }
+  }
+  implicit val db = couch.db(config.getString("database.name"), typeMapping)
 
   def create(doc: Employee): CouchDoc[Employee] = {
     val createdDoc = db.docs.create(doc).unsafePerformSync
