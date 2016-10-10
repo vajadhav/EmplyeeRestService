@@ -233,7 +233,9 @@
                             <ports>
                                 <port>8765</port>
                             </ports>
-                            <command>java -Djava.security.egd=file:/dev/./urandom -jar /opt/akka-http/akka-http-employee-service.jar</command>
+                            <cmd>
+                                <shell>java -Djava.security.egd=file:/dev/./urandom -jar /opt/akka-http/akka-http-employee-service.jar</shell>
+                            </cmd>
                             <assembly>
                                 <inline>
                                     <dependencySets>
