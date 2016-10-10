@@ -89,6 +89,31 @@
         <artifactId>swagger-akka-http_2.11</artifactId>
         <version>0.7.2</version>
     </dependency>
+    <dependency>
+        <groupId>org.scalactic</groupId>
+        <artifactId>scalactic_2.11</artifactId>
+        <version>3.0.0</version>
+    </dependency>
+    <dependency>
+        <groupId>com.typesafe.akka</groupId>
+        <artifactId>akka-http-testkit-experimental_2.11</artifactId>
+        <version>2.4.2-RC1</version>
+    </dependency>
+
+    <!-- https://mvnrepository.com/artifact/com.typesafe.akka/akka-testkit_2.11 -->
+    <dependency>
+        <groupId>com.typesafe.akka</groupId>
+        <artifactId>akka-testkit_2.11</artifactId>
+        <version>2.4.10</version>
+    </dependency>
+
+
+    <!-- https://mvnrepository.com/artifact/org.scalamock/scalamock-scalatest-support_2.11 -->
+    <dependency>
+        <groupId>org.scalamock</groupId>
+        <artifactId>scalamock-scalatest-support_2.11</artifactId>
+        <version>3.1.1</version>
+    </dependency>
 </dependencies>
 <build>
     <sourceDirectory>src/main/scala</sourceDirectory>

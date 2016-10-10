@@ -1,4 +1,4 @@
-import EmployeeCouchService._
+import com.ibm.employee.service.app.EmployeeCouchService._
 import akka.http.scaladsl.testkit.ScalatestRouteTest
 import org.scalatest.{Matchers, WordSpec}
 
