@@ -131,6 +131,9 @@ stages:
   - name: BIND_TO
     value: ContainerVcapsBridge
     type: text
+  - name: CONTAINER_SIZE
+    value: tiny
+    type: text
   jobs:
   - name: Containerize
     type: deployer
@@ -140,8 +143,8 @@ stages:
       organization: amikarir@in.ibm.com
       space: Dev
     PORT: '8765'
-    CONTAINER_NAME: EmployeeAkkaHttpCloudantBackedContainer
     DEPLOY_TYPE: red_black
+    CONTAINER_NAME: EmployeeAkkaHttpCloudantBackedContainer
     COMMAND: "#!/bin/bash\n# The following are some example deployment scripts.  Use\
       \ these as is or fork them and include your updates here:\necho -e \"${label_color}Starting\
       \ deployment script${no_color}\"\n\n\n# To view/fork this script goto: https://github.com/Osthanes/deployscripts\n\
