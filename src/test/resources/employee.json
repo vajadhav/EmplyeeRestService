@@ -1,0 +1,25 @@
+{
+  "name": "Tony Ananad",
+  "band": "7A",
+  "doj": "2015-12-12",
+  "location": "Gurgaon",
+  "skills": [
+    {
+      "skill": "Spring Boot",
+      "experience": 5
+    },
+    {
+      "skill": "Cloudant",
+      "experience": 6
+    },
+    {
+      "skill": "Scala",
+      "experience": 0
+    },
+    {
+      "skill": "Akka",
+      "experience": 0
+    }
+  ],
+  "kind": "Employee"
+}
