@@ -269,7 +269,7 @@ trait BluemixServicesHelper extends ModelToJsonmapping with ConfigInitializer{
   }
 
   def getApplicationInstancePublicPort(): Int = {
-    var cfInstancePort = sys.env.get("CF_INSTANCE_PORT").getOrElse(s"${config.getInt("http.port")}").toInt
+    var cfInstancePort = sys.env.get("PORT").getOrElse(s"${config.getInt("http.port")}").toInt
     cfInstancePort
   }
 }
