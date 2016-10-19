@@ -93,7 +93,7 @@ object EmployeeCouchService extends App with EmployeeService with BluemixService
   val port = getApplicationInstancePublicPort()
   logger.info(s"public interface address derived is $interface:$port")
   val bindingFuture = Http().bindAndHandle(RouteResult.route2HandlerFlow(endpoints),
-    interface, port)
+    "0.0.0.0", port)
 
   sys.ShutdownHookThread {
     println(s"unbinding port ${config.getInt("http.port")}")
