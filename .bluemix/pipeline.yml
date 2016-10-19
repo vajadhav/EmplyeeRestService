@@ -24,9 +24,9 @@ stages:
   - name: CloudantDB
     type: deployer
     target:
-      region_id: ibm:yp:us-south
-      organization: amikarir@in.ibm.com
-      space: Dev
+      url: ${CF_TARGET_URL}
+      organization: ${CF_ORGANIZATION}
+      space: ${CF_SPACE}
       application: Cloudant NoSQL DB-gs
     script: |+
       #!/bin/bash
@@ -43,9 +43,9 @@ stages:
   - name: CFService
     type: deployer
     target:
-      region_id: ibm:yp:us-south
-      organization: amikarir@in.ibm.com
-      space: Dev
+      url: ${CF_TARGET_URL}
+      organization: ${CF_ORGANIZATION}
+      space: ${CF_SPACE}
       application: EmployeeAkkaHttpMicroService
     script: |
       #!/bin/bash
@@ -62,9 +62,9 @@ stages:
   - name: ContainerBridgeCF
     type: deployer
     target:
-      region_id: ibm:yp:us-south
-      organization: amikarir@in.ibm.com
-      space: Dev
+      url: ${CF_TARGET_URL}
+      organization: ${CF_ORGANIZATION}
+      space: ${CF_SPACE}
       application: ContainerVcapsBridge
     script: |+
       #!/bin/bash
@@ -83,9 +83,9 @@ stages:
     type: builder
     extension_id: ibm.devops.services.pipeline.container.builder
     target:
-      url: https://api.ng.bluemix.net
-      organization: amikarir@in.ibm.com
-      space: Dev
+      url: ${CF_TARGET_URL}
+      organization: ${CF_ORGANIZATION}
+      space: ${CF_SPACE}
     IMAGE_NAME: employee-service-autobuild
     USE_CACHED_LAYERS: 'true'
     COMMAND: "#!/bin/bash\n# The following colors have been defined to help with presentation\
@@ -139,9 +139,9 @@ stages:
     type: deployer
     extension_id: ibm.devops.services.pipeline.docker.deploy.ice
     target:
-      url: https://api.ng.bluemix.net
-      organization: amikarir@in.ibm.com
-      space: Dev
+      url: ${CF_TARGET_URL}
+      organization: ${CF_ORGANIZATION}
+      space: ${CF_SPACE}
     PORT: '8765'
     DEPLOY_TYPE: red_black
     CONTAINER_NAME: EmployeeAkkaHttpCloudantBackedContainer
