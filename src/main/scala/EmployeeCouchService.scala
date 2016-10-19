@@ -80,7 +80,7 @@ trait ModelToJsonmapping extends SprayJsonSupport with DefaultJsonProtocol {
 
 }
 
-object EmployeeCouchService extends App with EmployeeService with BluemixServicesHelper{
+object EmployeeCouchService extends App with EmployeeService {
 
   override val logger = Logging(system, getClass)
 
@@ -89,11 +89,10 @@ object EmployeeCouchService extends App with EmployeeService with BluemixService
       swaggerResourcesRoute ~ employeeServiceApiRoutes ~ swaggerDocServiceRoute
     }
 
-  val interface = getApplicationInstanceIpAddr()
-  val port = getApplicationInstancePublicPort()
-  logger.info(s"public interface address derived is $interface:$port")
+  val localhost = InetAddress.getLocalHost
+  val interface = localhost.getHostAddress
   val bindingFuture = Http().bindAndHandle(RouteResult.route2HandlerFlow(endpoints),
-    "0.0.0.0", port)
+    interface, Option(System.getenv("PORT")).getOrElse(s"${config.getInt("http.port")}").toInt)
 
   sys.ShutdownHookThread {
     println(s"unbinding port ${config.getInt("http.port")}")
@@ -111,7 +110,7 @@ object EmployeeCouchService extends App with EmployeeService with BluemixService
   }
 
   def swaggerDocServiceRoute = {
-    new SwaggerDocService(interface, port, system, materializer).routes
+    new SwaggerDocService(interface, config.getInt("http.port"), system, materializer).routes
   }
 
 }
@@ -134,8 +133,8 @@ trait EmployeeService extends Directives with ModelToJsonmapping with CouchDAO {
         complete(StatusCodes.NotFound -> new ResponseError(StatusCodes.NotFound.intValue
           , "document with specified ID does not exist"))
       }
-//    case _: Throwable => complete(StatusCodes.InternalServerError -> new ResponseError(StatusCodes.InternalServerError.intValue
-//      , "An unexpected error occured while serving request"))
+    case _: Throwable => complete(StatusCodes.InternalServerError -> new ResponseError(StatusCodes.InternalServerError.intValue
+      , "An unexpected error occured while serving request"))
   }
 
   def employeeServiceApiRoutes = {
@@ -209,7 +208,7 @@ trait EmployeeService extends Directives with ModelToJsonmapping with CouchDAO {
     new ApiResponse(code = 200, message = "OK"),
     new ApiResponse(code = 404, message = "NOT FOUND")
   ))
-  def updateEntityRoute = {
+  def updateEntityRoute =
     (
       path(Segment)) { id =>
       (put & entity(as[Employee])) { employee =>
@@ -217,7 +216,6 @@ trait EmployeeService extends Directives with ModelToJsonmapping with CouchDAO {
         complete(StatusCodes.Accepted -> createdDoc)
       }
     }
-  }
 
   @DELETE
   @Path("/{id}")
@@ -239,56 +237,29 @@ import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
 import com.github.swagger.akka._
 import com.github.swagger.akka.model.Info
+
 import scala.reflect.runtime.{universe => r}
 
 class SwaggerDocService(address: String, port: Int, system: ActorSystem, actorMaterializer: ActorMaterializer)
   extends SwaggerHttpService with HasActorSystem {
   override implicit val actorSystem: ActorSystem = system
   override implicit val materializer: ActorMaterializer = actorMaterializer
+  override val apiTypes = Seq(r.typeOf[EmployeeService])
   override val host = address + ":" + port
   override val info = Info(version = "1.0")
-  override val apiTypes = Seq(r.typeOf[EmployeeService])
-
-}
-
-trait BluemixServicesHelper extends ModelToJsonmapping with ConfigInitializer{
-
-  def getServices(): VCapCloudantService = {
-    implicit val vcaps: VCapCloudantService = sys.env.get("VCAP_SERVICES") match {
-      case None => new VCapCloudantService(List.empty)
-      case Some(vcaps_services) => {
-        vcaps_services.stripMargin.parseJson.convertTo[VCapCloudantService]
-      }
-    }
-    vcaps
-  }
-
-  def getApplicationInstanceIpAddr(): String = {
-    var cfInstanceAddr = sys.env.get("CF_INSTANCE_IP").getOrElse(InetAddress.getLocalHost.getHostAddress)
-    cfInstanceAddr
-  }
-
-  def getApplicationInstancePublicPort(): Int = {
-    var cfInstancePort = sys.env.get("PORT").getOrElse(s"${config.getInt("http.port")}").toInt
-    cfInstancePort
-  }
-}
-
-import com.typesafe.config.{Config, ConfigFactory}
-trait ConfigInitializer {
-  implicit val config: Config = ConfigFactory.load()
 }
 
 import com.ibm.couchdb.{CouchDb, CouchDoc, TypeMapping}
 import com.typesafe.config.{Config, ConfigFactory}
 
-trait CouchDAO extends ModelToJsonmapping with BluemixServicesHelper with ConfigInitializer{
+trait CouchDAO extends ModelToJsonmapping {
   implicit val typeMapping = TypeMapping(classOf[Employee] -> "Employee")
+  implicit val config: Config = ConfigFactory.load()
   implicit val couch = sys.env.get("VCAP_SERVICES") match {
     case None => CouchDb(config.getString("database.url"), config.getInt("database.port"),
       https = false, config.getString("database.user"), config.getString("database.password"))
     case Some(vcaps_services) => {
-      val services: VCapCloudantService = getServices()
+      val services: VCapCloudantService = vcaps_services.stripMargin.parseJson.convertTo[VCapCloudantService]
       val bluemixCloudantDbaasCredentials: DBCredentials = services.cloudantNoSQLDB(0).credentials
       CouchDb(bluemixCloudantDbaasCredentials.host, bluemixCloudantDbaasCredentials.port,
         https = true, bluemixCloudantDbaasCredentials.username, bluemixCloudantDbaasCredentials.password)
