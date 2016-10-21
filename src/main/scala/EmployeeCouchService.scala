@@ -263,7 +263,7 @@ class SwaggerDocService(uri: String, system: ActorSystem, actorMaterializer: Act
 
 }
 
-trait BluemixServicesHelper extends ModelToJsonmapping with ConfigInitializer {
+trait BluemixServicesHelper extends ModelToJsonmapping {
 
   def getServices(services: String): VCapCloudantService = {
     val vcaps: VCapCloudantService = services.stripMargin.parseJson.convertTo[VCapCloudantService]
