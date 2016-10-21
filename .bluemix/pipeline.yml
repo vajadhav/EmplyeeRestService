@@ -49,7 +49,7 @@ stages:
       application: EmployeeAkkaHttpMicroService
     script: |
       #!/bin/bash
-      cf push "${CF_APP}" -p EmployeeCouchAkkaService-1.0-SNAPSHOT-bin.zip -m 512M --no-start
+      cf push "${CF_APP}" -p EmployeeCouchAkkaService-1.0-SNAPSHOT-bin.zip -m 512M --random-route --no-start
       cf bind-service "${CF_APP}" "Cloudant NoSQL DB-gs"
       cf start "${CF_APP}"
 - name: CBridgeCFDeploy
@@ -78,6 +78,10 @@ stages:
     job: BuildArtifacts
   triggers:
   - type: stage
+  properties:
+  - name: IMAGE_LIMIT
+    value: '2'
+    type: text
   jobs:
   - name: BuildImage
     type: builder
@@ -120,7 +124,7 @@ stages:
       # Copy any artifacts that will be needed for deployment and testing to $WORKSPACE\
       \    #\n######################################################################################\n\
       echo \"IMAGE_NAME=${FULL_REPOSITORY_NAME}\" >> $ARCHIVE_DIR/build.properties"
-- name: DeploySingleContainer
+- name: DeployContainerGroup
   inputs:
   - type: job
     stage: BuildDockerImage
@@ -134,6 +138,12 @@ stages:
   - name: CONTAINER_SIZE
     value: tiny
     type: text
+  - name: CONCURRENT_VERSIONS
+    value: '1'
+    type: text
+  - name: ROUTE_HOSTNAME
+    value: ${CF_APP}
+    type: text
   jobs:
   - name: Containerize
     type: deployer
@@ -144,7 +154,7 @@ stages:
       space: ${CF_SPACE}
     PORT: '8765'
     DEPLOY_TYPE: red_black
-    CONTAINER_NAME: EmployeeAkkaHttpCloudantBackedContainer
+    CONTAINER_NAME: EmployeeAkkaHttpCloudantBackedContainerGroup
     COMMAND: "#!/bin/bash\n# The following are some example deployment scripts.  Use\
       \ these as is or fork them and include your updates here:\necho -e \"${label_color}Starting\
       \ deployment script${no_color}\"\n\n\n# To view/fork this script goto: https://github.com/Osthanes/deployscripts\n\
@@ -166,7 +176,7 @@ stages:
       \                                                  large (4096), x-large (8192),\
       \ 2x-large (16384).\n#                                    Default is micro (256).\n\
       #   CONCURRENT_VERSIONS Number       Number of versions of this container to\
-      \ leave active.  \n#                                    Default is 1\n#\n/bin/bash\
+      \ leave active.  \n#                                    Default is 1\n#\n#/bin/bash\
       \ deployscripts/deploycontainer.sh\n\n# Deploy Container Group:\n# Optional\
       \ environment properties (can be set directly in this script, or defined as\
       \ environment properties):\n#      NAME              Value         Description\n\
@@ -188,7 +198,7 @@ stages:
       \ Number       Number of versions of this group to leave active.\n#        \
       \                            Default is 1\n# IF YOU WANT CONTAINER GROUPS ..\
       \ uncomment the next line, and comment out the previous deployment line (/bin/bash\
-      \ deployscripts/deploygroup.sh)\n#/bin/bash deployscripts/deploygroup.sh\n\n\
+      \ deployscripts/deploygroup.sh)\n/bin/bash deployscripts/deploygroup.sh\n\n\
       RESULT=$?\n\n# source the deploy property file\nif [ -f \"${DEPLOY_PROPERTY_FILE}\"\
       \ ]; then\n  source \"$DEPLOY_PROPERTY_FILE\"\nfi\n\n#########################\n\
       # Environment DETAILS   #\n#########################\n# The environment has\
