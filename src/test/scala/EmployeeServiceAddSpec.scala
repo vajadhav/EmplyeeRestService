@@ -14,7 +14,7 @@ import akka.http.scaladsl.model._
 
   "Employee API" should {
     "Posting to /employee should add the employee" in {
-
+      //Creating a test employee JSON object to insert
       val jsonRequest = ByteString(
         s"""
           {
@@ -45,13 +45,15 @@ import akka.http.scaladsl.model._
            |"kind":"Employee"
             |}
         """.stripMargin)
-
+      //Preparing the request object
       val postRequest = HttpRequest(
         HttpMethods.POST,
         uri = "employee",
         entity = HttpEntity(MediaTypes.`application/json`, jsonRequest))
 
-
+      //sending http post request to add a particular employee records
+      //postEntityRoute is being used
+      //check blocks validate the return status
       postRequest ~> postEntityRoute ~> check {
         status.isSuccess() shouldEqual true
       }

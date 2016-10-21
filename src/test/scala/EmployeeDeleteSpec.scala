@@ -11,8 +11,10 @@ import shapeless.PolyDefns.~>
 
 class EmployeeDeleteSpec extends WordSpec with Matchers with ScalatestRouteTest {
   "Employee API" should {
-    "Posting to /{id} should delete the employee" in {
-
+    "Posting /{id} should delete the employee" in {
+        //sending http delete request to delete a specific record
+      //deleteEntityRoute is being used
+      //check blocks validate the return status
         Delete("/251a1731a841c07c3b0e7bfc31b1f334") ~> deleteEntityRoute ~> check {
         //responseAs[Employee].name shouldEqual("Seema Anand")
         status.isSuccess() shouldEqual true

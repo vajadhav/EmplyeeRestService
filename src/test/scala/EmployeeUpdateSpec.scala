@@ -12,6 +12,7 @@ import shapeless.PolyDefns.~>
 class EmployeeUpdateSpec extends WordSpec with Matchers with ScalatestRouteTest {
   "Employee API" should {
     "Posting to /employee/1 should update the employee" in {
+      //Creating a test JSON object of an existing employee for update
 
       val jsonRequest = ByteString(
         s"""
@@ -43,7 +44,9 @@ class EmployeeUpdateSpec extends WordSpec with Matchers with ScalatestRouteTest 
            |}
         """.stripMargin)
 
-
+      //sending http put request to update a particular employee records
+      //updateEntityRoute is being used
+      //check blocks validate the return status
       Put("/251a1731a841c07c3b0e7bfc31b6e52f",HttpEntity(MediaTypes.`application/json`, jsonRequest)) ~> updateEntityRoute ~> check {
         //responseAs[Employee].name shouldEqual("Seema Anand")
         status.isSuccess() shouldEqual true

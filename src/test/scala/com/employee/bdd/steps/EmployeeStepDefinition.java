@@ -18,7 +18,9 @@ import java.util.Scanner;
 
 import static org.junit.Assert.assertEquals;
 
+// Step definition class used by employee.feature
 public class EmployeeStepDefinition {
+    //Constants
     //  http://169.254.219.130:8765/employee
     private static final String RESTFUL_URL = "http://169.254.219.130:8765/employee";
     private static final String EMPLOYEE_ID = "/36473afed12fd7ffc00f459a71028188";
@@ -44,15 +46,19 @@ public class EmployeeStepDefinition {
 
     @When("^users submits the data$")
     public void users_submits_the_data() throws Throwable {
+        //Obtain the test employee JSON object
         InputStream jsonInputStream = this.getClass().getClassLoader().getResourceAsStream("employee.json");
         String jsonString = new Scanner(jsonInputStream, "UTF-8").useDelimiter("\\Z").next();
-
+        //Creating instance of httpClient
         CloseableHttpClient httpClient = HttpClients.createDefault();
+        //Preparing the request object
         HttpPost request = new HttpPost(RESTFUL_URL);
         StringEntity entity = new StringEntity(jsonString);
         request.addHeader("content-type", APPLICATION_JSON);
         request.setEntity(entity);
+        //Getting the response object
         HttpResponse response = httpClient.execute(request);
+        //Validating the response status received
         assertEquals(201, response.getStatusLine().getStatusCode());
     }
 
@@ -68,10 +74,14 @@ public class EmployeeStepDefinition {
 
     @When("^users want to get information about an employee$")
     public void users_want_to_get_information_about_an_employee() throws Throwable {
+        //Creating instance of httpClient
         CloseableHttpClient httpClient = HttpClients.createDefault();
+        //Preparing the request object
         HttpGet request = new HttpGet(RESTFUL_URL + EMPLOYEE_ID);
+        //Getting the response object
         HttpResponse httpResponse = httpClient.execute(request);
         String stringResponse = convertHttpResponseToString(httpResponse);
+        //Validating the response status received
         assertEquals(200, httpResponse.getStatusLine().getStatusCode());
         assertEquals(APPLICATION_JSON, httpResponse.getFirstHeader("Content-Type").getValue());
     }
@@ -88,10 +98,14 @@ public class EmployeeStepDefinition {
 
     @When("^users wants to get all employee informations$")
     public void users_wants_to_get_all_employee_informations() throws Throwable {
+        //Creating instance of httpClient
         CloseableHttpClient httpClient = HttpClients.createDefault();
+        //Preparing the request object
         HttpGet request = new HttpGet(RESTFUL_URL);
+        //Getting the response object
         HttpResponse httpResponse = httpClient.execute(request);
         String stringResponse = convertHttpResponseToString(httpResponse);
+        //Validating the response status received
         assertEquals(200, httpResponse.getStatusLine().getStatusCode());
         assertEquals(APPLICATION_JSON, httpResponse.getFirstHeader("Content-Type").getValue());
     }
@@ -108,16 +122,21 @@ public class EmployeeStepDefinition {
 
     @When("^users want to update employee informations$")
     public void users_want_to_update_employee_informations() throws Throwable {
+        //Get employee JSON object for update
         InputStream jsonInputStream = this.getClass().getClassLoader().getResourceAsStream(JSON_FILE);
         String jsonString = convertInputStreamToString(jsonInputStream);
+        //Creating instance of httpClient
         CloseableHttpClient client = HttpClients.createDefault();
-
+        //preparing the request object
         HttpPut httpPost = new HttpPut(RESTFUL_URL + EMPLOYEE_ID);
         StringEntity entity = new StringEntity(jsonString, "UTF-8");
+        //Setting the request object
         httpPost.setEntity(entity);
         httpPost.setHeader("Accept", APPLICATION_JSON);
         httpPost.setHeader("Content-type", APPLICATION_JSON);
+        //Getting the response object
         CloseableHttpResponse httpResponse = client.execute(httpPost);
+        //Validating the response status received
         assertEquals(202, httpResponse.getStatusLine().getStatusCode());
         client.close();
     }
