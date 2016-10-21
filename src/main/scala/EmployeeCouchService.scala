@@ -24,6 +24,8 @@ case class ResponseError(id: Int, message: String)
 
 case class VCapCloudantService(cloudantNoSQLDB: List[Service])
 
+case class CloudFoundryApplication(application_uris: List[String])
+
 case class Service(credentials: DBCredentials)
 
 case class DBCredentials(username: String, password: String, host: String, port: Int, url: String)
@@ -34,6 +36,7 @@ trait ModelToJsonmapping extends SprayJsonSupport with DefaultJsonProtocol {
   implicit val dbCredsFormat = jsonFormat5(DBCredentials)
   implicit val serviceFormat = jsonFormat1(Service)
   implicit val vcapsServicesFormat = jsonFormat1(VCapCloudantService)
+  implicit val cfAppEnvFormat = jsonFormat1(CloudFoundryApplication)
 
   implicit object DateTimeFormat extends RootJsonFormat[DateTime] {
 
@@ -80,7 +83,7 @@ trait ModelToJsonmapping extends SprayJsonSupport with DefaultJsonProtocol {
 
 }
 
-object EmployeeCouchService extends App with EmployeeService {
+object EmployeeCouchService extends App with EmployeeService with BluemixServicesHelper {
 
   override val logger = Logging(system, getClass)
 
@@ -91,8 +94,9 @@ object EmployeeCouchService extends App with EmployeeService {
 
   val localhost = InetAddress.getLocalHost
   val interface = localhost.getHostAddress
+  val port = config.getInt("http.port")
   val bindingFuture = Http().bindAndHandle(RouteResult.route2HandlerFlow(endpoints),
-    interface, Option(System.getenv("PORT")).getOrElse(s"${config.getInt("http.port")}").toInt)
+    interface, Option(System.getenv("PORT")).getOrElse(s"$port").toInt)
 
   sys.ShutdownHookThread {
     println(s"unbinding port ${config.getInt("http.port")}")
@@ -110,7 +114,16 @@ object EmployeeCouchService extends App with EmployeeService {
   }
 
   def swaggerDocServiceRoute = {
-    new SwaggerDocService(interface, config.getInt("http.port"), system, materializer).routes
+    val cfApp: CloudFoundryApplication = getCloudFoundryApplicationEnv()
+    // this is the case for the deployed CF app, in this case VCAP_APPLICATION is found and app uris unmarshalled
+    // to CloudFoundryApplication
+    if (!cfApp.application_uris.isEmpty)
+      new SwaggerDocService(cfApp.application_uris(0), system, materializer).routes
+    else {
+      //TODO bind public address for container, currently cant be queried
+      val uri = interface.concat(":").concat(String.valueOf(port))
+      new SwaggerDocService(uri, system, materializer).routes
+    }
   }
 
 }
@@ -208,7 +221,7 @@ trait EmployeeService extends Directives with ModelToJsonmapping with CouchDAO {
     new ApiResponse(code = 200, message = "OK"),
     new ApiResponse(code = 404, message = "NOT FOUND")
   ))
-  def updateEntityRoute =
+  def updateEntityRoute = {
     (
       path(Segment)) { id =>
       (put & entity(as[Employee])) { employee =>
@@ -216,6 +229,7 @@ trait EmployeeService extends Directives with ModelToJsonmapping with CouchDAO {
         complete(StatusCodes.Accepted -> createdDoc)
       }
     }
+  }
 
   @DELETE
   @Path("/{id}")
@@ -237,29 +251,56 @@ import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
 import com.github.swagger.akka._
 import com.github.swagger.akka.model.Info
-
 import scala.reflect.runtime.{universe => r}
 
-class SwaggerDocService(address: String, port: Int, system: ActorSystem, actorMaterializer: ActorMaterializer)
+class SwaggerDocService(uri: String, system: ActorSystem, actorMaterializer: ActorMaterializer)
   extends SwaggerHttpService with HasActorSystem {
   override implicit val actorSystem: ActorSystem = system
   override implicit val materializer: ActorMaterializer = actorMaterializer
-  override val apiTypes = Seq(r.typeOf[EmployeeService])
-  override val host = address + ":" + port
+  override val host = uri
   override val info = Info(version = "1.0")
+  override val apiTypes = Seq(r.typeOf[EmployeeService])
+
+}
+
+trait BluemixServicesHelper extends ModelToJsonmapping with ConfigInitializer {
+
+  def getServices(services: String): VCapCloudantService = {
+    val vcaps: VCapCloudantService = services.stripMargin.parseJson.convertTo[VCapCloudantService]
+    vcaps
+  }
+
+  def getCloudFoundryApplicationEnv(): CloudFoundryApplication = {
+    val cfApp = sys.env.get("VCAP_APPLICATION") match {
+      case None => {
+        new CloudFoundryApplication(List.empty)
+      }
+      case Some(appEnv) => {
+        println(s"got VCAP_APPLICATION as \n ${appEnv.toJson.prettyPrint}")
+        appEnv.stripMargin.parseJson.convertTo[CloudFoundryApplication]
+      }
+    }
+    cfApp
+  }
+}
+
+import com.typesafe.config.{Config, ConfigFactory}
+
+trait ConfigInitializer {
+  implicit val config: Config = ConfigFactory.load()
 }
 
 import com.ibm.couchdb.{CouchDb, CouchDoc, TypeMapping}
 import com.typesafe.config.{Config, ConfigFactory}
 
-trait CouchDAO extends ModelToJsonmapping {
+trait CouchDAO extends ModelToJsonmapping with BluemixServicesHelper with ConfigInitializer {
   implicit val typeMapping = TypeMapping(classOf[Employee] -> "Employee")
-  implicit val config: Config = ConfigFactory.load()
   implicit val couch = sys.env.get("VCAP_SERVICES") match {
     case None => CouchDb(config.getString("database.url"), config.getInt("database.port"),
       https = false, config.getString("database.user"), config.getString("database.password"))
     case Some(vcaps_services) => {
-      val services: VCapCloudantService = vcaps_services.stripMargin.parseJson.convertTo[VCapCloudantService]
+      println(s"vcap services read as \n ${vcaps_services.toJson.prettyPrint}")
+      val services: VCapCloudantService = getServices(vcaps_services)
       val bluemixCloudantDbaasCredentials: DBCredentials = services.cloudantNoSQLDB(0).credentials
       CouchDb(bluemixCloudantDbaasCredentials.host, bluemixCloudantDbaasCredentials.port,
         https = true, bluemixCloudantDbaasCredentials.username, bluemixCloudantDbaasCredentials.password)

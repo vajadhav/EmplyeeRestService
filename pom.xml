@@ -139,6 +139,8 @@
         <artifactId>httpclient</artifactId>
         <version>4.5</version>
     </dependency>
+    <!-- The following dependency is the fix for swagger api docs generation route that broke due to a mismatched jackson databind lib related to
+    the jackson scala module version below-->
     <dependency>
         <groupId>com.fasterxml.jackson.module</groupId>
         <artifactId>jackson-module-scala_2.11</artifactId>
