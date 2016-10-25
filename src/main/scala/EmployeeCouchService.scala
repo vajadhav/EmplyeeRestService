@@ -15,7 +15,7 @@ import io.swagger.annotations._
 import org.joda.time.DateTime
 import org.joda.time.format.ISODateTimeFormat
 import spray.json._
-
+//case classes used
 case class Employee(name: String, band: String, location: String, skills: List[SkillSet] /*, doj:DateTime*/)
 
 case class SkillSet(skill: String, experience: Int)
@@ -29,7 +29,7 @@ case class CloudFoundryApplication(application_uris: List[String])
 case class Service(credentials: DBCredentials)
 
 case class DBCredentials(username: String, password: String, host: String, port: Int, url: String)
-
+// Marshalling & UnMarshalling
 trait ModelToJsonmapping extends SprayJsonSupport with DefaultJsonProtocol {
   implicit val skillsetFormat = jsonFormat2(SkillSet)
   implicit val errorResponseFormat = jsonFormat2(ResponseError)
@@ -64,7 +64,7 @@ trait ModelToJsonmapping extends SprayJsonSupport with DefaultJsonProtocol {
   }
 
   implicit val employeeFormat = jsonFormat4(Employee)
-
+//Employee Object to JSON object conversion
   implicit object couchDocFormat extends RootJsonFormat[CouchDoc[Employee]] {
     def write(doc: CouchDoc[Employee]) = {
       JsObject("_id" -> JsString(doc._id),
@@ -82,7 +82,7 @@ trait ModelToJsonmapping extends SprayJsonSupport with DefaultJsonProtocol {
   }
 
 }
-
+//Object used by swaggerUI to test the routes.
 object EmployeeCouchService extends App with EmployeeService with BluemixServicesHelper {
 
   override val logger = Logging(system, getClass)
@@ -132,6 +132,7 @@ import akka.event.LoggingAdapter
 
 @Path("/employee")
 @Api(value = "Employee Service (Reverse Engineered) Routes", produces = "application/json")
+//employeeService has all the routes for CRUD operations used via couchDB.
 trait EmployeeService extends Directives with ModelToJsonmapping with CouchDAO {
   implicit val system = ActorSystem()
   implicit val executor = system.dispatcher
@@ -156,6 +157,7 @@ trait EmployeeService extends Directives with ModelToJsonmapping with CouchDAO {
     }
   }
 
+  //To get an employee's details.
   @GET
   @Path("/{id}")
   @ApiOperation(value = "Get employee by ID", nickname = "getEmployeeByID",
@@ -170,7 +172,7 @@ trait EmployeeService extends Directives with ModelToJsonmapping with CouchDAO {
   def getByIdRoute = (path(Segment) & get) { id =>
     complete(read(id))
   }
-
+// To get Employee by Band.
   @GET
   @Path("band/{band}")
   @ApiOperation(value = "Get employees by band", nickname = "getEmployeesByBand",
@@ -184,7 +186,7 @@ trait EmployeeService extends Directives with ModelToJsonmapping with CouchDAO {
   def getByBandRoute = (pathPrefix("band") & path(Segment) & get) { band =>
     complete(readByBand(band))
   }
-
+// To get all the employee documents
   @GET
   @ApiOperation(value = "Get list of all employee type documents", nickname = "getAllEmployeeKind",
     response = classOf[List[CouchDoc[Employee]]], responseContainer = "List")
@@ -194,7 +196,7 @@ trait EmployeeService extends Directives with ModelToJsonmapping with CouchDAO {
   def getAllByDocTypeRoute = (get) {
     complete(readAllByType())
   }
-
+// To create a new employee
   @POST
   @ApiOperation(value = "Create new employee", nickname = "postEmployee", produces = "application/json",
     response = classOf[CouchDoc[Employee]], responseContainer = "Set")
@@ -208,7 +210,7 @@ trait EmployeeService extends Directives with ModelToJsonmapping with CouchDAO {
     val createdDoc = create(employee)
     complete(StatusCodes.Created -> createdDoc)
   }
-
+  // To update an existing employee's details
   @PUT
   @Path("/{id}")
   @ApiOperation(value = "Update new employee", nickname = "postEmployee", produces = "application/json",
@@ -230,7 +232,7 @@ trait EmployeeService extends Directives with ModelToJsonmapping with CouchDAO {
       }
     }
   }
-
+  // To delete an existing employee
   @DELETE
   @Path("/{id}")
   @ApiOperation(value = "Delete an employee", nickname = "deleteEmployee")
@@ -262,7 +264,7 @@ class SwaggerDocService(uri: String, system: ActorSystem, actorMaterializer: Act
   override val apiTypes = Seq(r.typeOf[EmployeeService])
 
 }
-
+//Helper trait to connect to the cloudant service of bluemix through "VCAP_SERVICES"
 trait BluemixServicesHelper extends ModelToJsonmapping {
 
   def getServices(services: String): VCapCloudantService = {
@@ -285,14 +287,15 @@ trait BluemixServicesHelper extends ModelToJsonmapping {
 }
 
 import com.typesafe.config.{Config, ConfigFactory}
-
+// To read from application.conf in resources folder
 trait ConfigInitializer {
   implicit val config: Config = ConfigFactory.load()
 }
 
 import com.ibm.couchdb.{CouchDb, CouchDoc, TypeMapping}
 import com.typesafe.config.{Config, ConfigFactory}
-
+//To connect to the cloudant service of bluemix through "VCAP_SERVICES"
+//Also has all the methods to perform CRUD operations with cloudant
 trait CouchDAO extends ModelToJsonmapping with BluemixServicesHelper with ConfigInitializer {
   implicit val typeMapping = TypeMapping(classOf[Employee] -> "Employee")
   implicit val couch = sys.env.get("VCAP_SERVICES") match {
@@ -307,30 +310,30 @@ trait CouchDAO extends ModelToJsonmapping with BluemixServicesHelper with Config
     }
   }
   implicit val db = couch.db(config.getString("database.name"), typeMapping)
-
+//To create a new employee doc.
   def create(doc: Employee): CouchDoc[Employee] = {
     val createdDoc = db.docs.create(doc).unsafePerformSync
     val couchDoc = db.docs.get[Employee](createdDoc.id).unsafePerformSync
     couchDoc
   }
-
+  //To read all the employee docs by Type.
   def readAllByType(): List[CouchDoc[Employee]] = {
     val couchDocs = db.docs.getMany.byType[(String, String), String]("byKind", "Employee"
       , MappedDocType("Employee")).includeDocs[Employee].build.query.unsafePerformSync
     couchDocs.getDocs.toList
   }
-
+  //To read all the employee docs by Band.
   def readByBand(band: String): List[CouchDoc[Employee]] = {
     val couchDocs = db.docs.getMany.byType[String, String]("byBand", "Employee"
       , MappedDocType("Employee")).includeDocs[Employee].key(band).build.query.unsafePerformSync
     couchDocs.getDocs.toList
   }
-
+  //To read a particular employee
   def read(id: String): CouchDoc[Employee] = {
     val couchDoc = db.docs.get[Employee](id).unsafePerformSync
     couchDoc
   }
-
+  //To update an existing employee docs
   def update(id: String, emp: Employee): CouchDoc[Employee] = {
     var couchDoc = db.docs.get[Employee](id).unsafePerformSync
     if (couchDoc != null) {
@@ -339,7 +342,7 @@ trait CouchDAO extends ModelToJsonmapping with BluemixServicesHelper with Config
     }
     couchDoc
   }
-
+  //To remove an existing employee docs
   def remove(id: String) = {
     val couchDoc = db.docs.get[Employee](id).unsafePerformSync
     if (couchDoc != null)
